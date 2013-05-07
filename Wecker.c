@@ -1,16 +1,9 @@
-//********************************************************************************
-//                   lcd.c - Program
-//                   -----------------
-//                                                                            
-//  Version:    C, Version 0.1
-//  File:       lcd.c
-//  Created:    30.03.2010
-//  Date:       30.03.2010
-//  Author:     Matthias Sturm
-//
-//  Description: LCD-Functions (4-bit Mode)
-//  Pinlayout see schematic
-//********************************************************************************
+//******************************************************************************
+//			Wecker							
+// 	Autor: 		André Hering, Matthias Jahn				
+//	Version: 	0.1							
+//										
+//******************************************************************************
 
 #include <msp430x22x2.h>
 
@@ -34,96 +27,96 @@ unsigned char datetime[6]; // 0. Sekunden, 1. Minute, 2. Stunden, 3. Tage, 4. Mo
 #define DISPLAY_ENABLE_HIGH  LCD_COMM_OUT |=  ENABLE_BIT  // enable HIGH
 #define DISPLAY_ENABLE_LOW   LCD_COMM_OUT &= ~ENABLE_BIT  // enable LOW
 
-//********************************************************************************
-// Description  : substitude of waiting for Busy-flag
+
+void lcd_delay(void){
+//******************************************************************************
+// Beschreibung : Wartezeit generieren, 400 Loop duchläufe
 // Input        : none
 // Output       : none
-//********************************************************************************
-void lcd_delay(void)
-  {
-  unsigned int count;
-  for (count=0; count<400; count++);// delay loop
-  };
-// ********************************************************************************
+//******************************************************************************
+	unsigned int count;
+	for (count=0; count<400; count++);// delay loop
+};
+
+void Send_byte_to_LCD (unsigned char data){
+// *****************************************************************************
 // Description  : Sends byte to lcd in 4bit-mode
 // Input        : data - data to send 
 //              : reg - specifies the lcd-register
 // Output       : none  
 // Date valid at HIGH-LOW edge of enable-signal !!
 // High nibble (BIT7-BIT4) are transfered first
-// ********************************************************************************
-void Send_byte_to_LCD (unsigned char data)
-  {
-     // send high nibble along BIT0..BIT3
-     DISPLAY_ENABLE_HIGH;
-     LCD_DATA_OUT = data>>4;
-     lcd_delay();
-     DISPLAY_ENABLE_LOW;
-     lcd_delay();
+// *****************************************************************************
+	// send high nibble along BIT0..BIT3
+	DISPLAY_ENABLE_HIGH;
+	LCD_DATA_OUT = data>>4;
+	lcd_delay();
+	DISPLAY_ENABLE_LOW;
+	lcd_delay();
      
   
-     // send low nibble along BIT0..BIT3
-     DISPLAY_ENABLE_HIGH;
-     LCD_DATA_OUT = data;
-     lcd_delay();
-     DISPLAY_ENABLE_LOW;
-     lcd_delay();
-  };
-//********************************************************************************
+	// send low nibble along BIT0..BIT3
+	DISPLAY_ENABLE_HIGH;
+	LCD_DATA_OUT = data;
+	lcd_delay();
+	DISPLAY_ENABLE_LOW;
+	lcd_delay();
+};
+
+void _CommandToLCD(unsigned char data){
+//******************************************************************************
 // Description  : send instruction to LCD
 // Input        : instruction code to send
 // Output       : none
-//********************************************************************************
-void _CommandToLCD(unsigned char data)
-  {
-  SELECT_COMMAND_REG;
-  Send_byte_to_LCD(data);
-  };
-//********************************************************************************
+//******************************************************************************
+	SELECT_COMMAND_REG;
+	Send_byte_to_LCD(data);
+};
+
+void _DataToLCD(unsigned char data){
+//******************************************************************************
 // Description  : send data to LCD
 // Input        : data to send
 // Output       : none
-//********************************************************************************
-void _DataToLCD(unsigned char data)
-  {
-  SELECT_DATA_REG;
-  Send_byte_to_LCD(data);
-  };
-// ********************************************************************************
+//******************************************************************************
+	SELECT_DATA_REG;
+	Send_byte_to_LCD(data);
+};
+
+void lcd_init(void){
+// *****************************************************************************
 // Description  : initialize the LCD controller
 //              : needs about 30ms to start
 // Input        : lcd_columns   - count of columns
 // Output       : none
-//********************************************************************************
-void lcd_init(void)
-  {
-  char initmuster [6]={0x33,0x32,0x28,0x0E,0x01,0x06};
-  int i=0;
-  // wait for more than 15ms after Vcc rises to 4.5V
-  while(i<70){
-              i++;
-              lcd_delay();
-              };
+//******************************************************************************
+	char initmuster [6]={0x33,0x32,0x28,0x0E,0x01,0x06};
+	int i=0;
+	// wait for more than 15ms after Vcc rises to 4.5V
+	while(i<70){
+		i++;
+		lcd_delay();
+	};
 
-   LCD_DATA_DIR |= 0x000F;         // sets data lines as outputs
-   LCD_COMM_DIR |= 0x0003;         // sets control lines as outputs
+	LCD_DATA_DIR |= 0x000F;         // sets data lines as outputs
+ 	LCD_COMM_DIR |= 0x0003;         // sets control lines as outputs
    
-   i=0;
-   DISPLAY_ENABLE_LOW;
-   lcd_delay();
-   _CommandToLCD(initmuster[i]);      // function set (Interface 8bit)
-   lcd_delay();
-   while(i<5){
-              i++;
-              _CommandToLCD(initmuster[i]);      // function set (Interface 8bit) 
-              };
-  };
-//********************************************************************************
+	i=0;
+	DISPLAY_ENABLE_LOW;
+	lcd_delay();
+	_CommandToLCD(initmuster[i]);      // function set (Interface 8bit)
+	lcd_delay();
+	while(i<5){
+		i++;
+		_CommandToLCD(initmuster[i]);      // function set (Interface 8bit) 
+	};
+};
+//******************************************************************************
 // Description  : set the LCD display position x=0..39 y=0..3
 // Input        : x - X-position
 //              : y - Y-position
 // Output       : none
-//********************************************************************************
+//******************************************************************************
 void lcd_gotoxy(unsigned char x, unsigned char y)
   {if (y>1) 
            y=0;
@@ -131,11 +124,11 @@ void lcd_gotoxy(unsigned char x, unsigned char y)
    _lcd_x=x;
    _lcd_y=y;
   };
-//********************************************************************************
+//******************************************************************************
 // Description  : clears the LCD
 // Input        : none
 // Output       : none
-//********************************************************************************
+//******************************************************************************
 void lcd_clear(void)
   {
    _CommandToLCD(0xc1); // cursor off
@@ -143,11 +136,11 @@ void lcd_clear(void)
 
    _lcd_x=_lcd_y=0;
   };
-//********************************************************************************
+//******************************************************************************
 // Description  : write a char to the LCD
 // Input        : c - character
 // Output       : none
-//********************************************************************************
+//******************************************************************************
 void lcd_putchar(unsigned char c)
   {
   
@@ -159,11 +152,11 @@ void lcd_putchar(unsigned char c)
      _DataToLCD(c);            // send data
      _lcd_x++;
   };
-//********************************************************************************
+//******************************************************************************
 // Description  : write the string str to the LCD
 // Input        : *str  pointer to string
 // Output       : none
-//********************************************************************************
+//******************************************************************************
 void lcd_puts(unsigned char *str)
   {
      while(*str!=0x0)
@@ -220,17 +213,17 @@ void update_datetime(){
     if (0 == datetime[1]){
       datetime[2] = (datetime[2] +1 ) % 24;
       int_to_ascii(2);
-      // Fürm Tage Monate und Jahre entsprechnd weiter machen
+      // Für Tage Monate und Jahre entsprechnd weiter machen
     }
   }
   
   
 }
-//********************************************************************************
+//******************************************************************************
 // Description  : main program
 // Input        : none
 // Output       : none
-//********************************************************************************
+//******************************************************************************
 void main( void )
 
   {
