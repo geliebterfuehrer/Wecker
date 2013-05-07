@@ -1,24 +1,26 @@
 //******************************************************************************
 //			Wecker							
-// 	Autor: 		AndrÈ Hering, Matthias Jahn				
+// 	Autor: 		AndrÔøΩ Hering, Matthias Jahn				
 //	Version: 	0.1							
 //										
 //******************************************************************************
 
+
 #include <msp430x22x2.h>
 
-unsigned int _base_y[2] = {0x80, 0xc0};   // example for 2x16 display
-          // 1. line 0x00..0x0F + Bit7==0x80
-          // 2. line 0x40..0x4F + Bit7==0xc0
-          // BIT7 nessesary for command "Set DD RAM address"
-            
-unsigned int _lcd_x,_lcd_y,_lcd_maxx;
 unsigned char datetime[6]; // 0. Sekunden, 1. Minute, 2. Stunden, 3. Tage, 4. Monate, 5. Jahre
-unsigned char menu_state = 1
+#define F_CPU 800000
+
+unsigned int LCD_base_y[2] = {0x80, 0xc0};   // example for 2x16 display
+// 1. line 0x00..0x0F + Bit7==0x80
+// 2. line 0x40..0x4F + Bit7==0xc0
+// BIT7 nessesary for command "Set DD RAM address"
+
+unsigned int LCD_x,LCD_y,LCD_max_x;
 
 #define LCD_DATA_OUT              P1OUT
 #define LCD_DATA_DIR              P1DIR
-#define LCD_COMM_OUT              P3OUT
+#define LCD_COMM_OUT              P3OUT-
 #define LCD_COMM_DIR              P3DIR
 #define RS_BIT               ( 0x0001 )            // RS Display
 #define ENABLE_BIT           ( 0x0002 )            // Enable Display
@@ -29,140 +31,110 @@ unsigned char menu_state = 1
 #define DISPLAY_ENABLE_LOW   LCD_COMM_OUT &= ~ENABLE_BIT  // enable LOW
 
 
-void lcd_delay(void){
-//******************************************************************************
-// Beschreibung : Wartezeit generieren, 400 Loop duchl‰ufe
-// Input        : none
-// Output       : none
-//******************************************************************************
-	unsigned int count;
-	for (count=0; count<400; count++);// delay loop
+#define F_CPU 800000		//Takt der CPU in Hz
+
+
+
+void LCD_Init ( )
+{
+	char LCD_init_CMDs[6] = {0x33, 0x32, 0x28, 0x0E, 0x01, 0x06};
+	int i = 0;
+	
+	delay_ms(15);					//wait 15ms after Vcc
+	LCD_DATA_DIR |= 0x000F;				// sets data lines as outputs
+	LCD_COMM_DIR |= 0x0003;				// sets control lines as outputs	
+	DISPLAY_ENABLE_LOW;	
+	delay_ms(15);
+	LCD_write_CMD(LCD_init_CMDs[0]);
+	delay_ms(15);
+	while (i < 5) 
+	{
+		i++;
+		LCD_write_CMD(LCD_init_CMDs[i]);
+	};
 };
 
-void Send_byte_to_LCD (unsigned char data){
-// *****************************************************************************
-// Description  : Sends byte to lcd in 4bit-mode
-// Input        : data - data to send 
-//              : reg - specifies the lcd-register
-// Output       : none  
-// Date valid at HIGH-LOW edge of enable-signal !!
-// High nibble (BIT7-BIT4) are transfered first
-// *****************************************************************************
+
+void LCD_write_byte(unsigned char data)
+{
 	// send high nibble along BIT0..BIT3
 	DISPLAY_ENABLE_HIGH;
 	LCD_DATA_OUT = data>>4;
-	lcd_delay();
+	delay_ms(100);
 	DISPLAY_ENABLE_LOW;
-	lcd_delay();
-     
-  
+	delay_ms(100);
+	
 	// send low nibble along BIT0..BIT3
 	DISPLAY_ENABLE_HIGH;
 	LCD_DATA_OUT = data;
-	lcd_delay();
+	delay_ms(100);
 	DISPLAY_ENABLE_LOW;
-	lcd_delay();
+	delay_ms(100);
 };
 
-void _CommandToLCD(unsigned char data){
-//******************************************************************************
-// Description  : send instruction to LCD
-// Input        : instruction code to send
-// Output       : none
-//******************************************************************************
+
+void LCD_write_CMD(unsigned char data)
+{
 	SELECT_COMMAND_REG;
-	Send_byte_to_LCD(data);
+	LCD_write_byte(data);
 };
 
-void _DataToLCD(unsigned char data){
-//******************************************************************************
-// Description  : send data to LCD
-// Input        : data to send
-// Output       : none
-//******************************************************************************
+
+void LCD_write_Data(unsigned char data)
+{
 	SELECT_DATA_REG;
-	Send_byte_to_LCD(data);
-};
-
-void lcd_init(void){
-// *****************************************************************************
-// Description  : initialize the LCD controller
-//              : needs about 30ms to start
-// Input        : lcd_columns   - count of columns
-// Output       : none
-//******************************************************************************
-	char initmuster [6]={0x33,0x32,0x28,0x0E,0x01,0x06};
-	int i=0;
-	// wait for more than 15ms after Vcc rises to 4.5V
-	while(i<70){
-		i++;
-		lcd_delay();
-	};
-
-	LCD_DATA_DIR |= 0x000F;         // sets data lines as outputs
- 	LCD_COMM_DIR |= 0x0003;         // sets control lines as outputs
-   
-	i=0;
-	DISPLAY_ENABLE_LOW;
-	lcd_delay();
-	_CommandToLCD(initmuster[i]);      // function set (Interface 8bit)
-	lcd_delay();
-	while(i<5){
-		i++;
-		_CommandToLCD(initmuster[i]);      // function set (Interface 8bit) 
-	};
-};
-
-void lcd_gotoxy(unsigned char x, unsigned char y){
-//******************************************************************************
-// Description  : set the LCD display position x=0..39 y=0..3
-// Input        : x - X-position
-//              : y - Y-position
-// Output       : none
-//******************************************************************************
-	if (y>1) y=0;
-	_CommandToLCD(_base_y[y]+x); // function set + 8bit bus
-	_lcd_x=x;
-	_lcd_y=y;
+	LCD_write_byte(data);
 };
 
 
-void lcd_clear(void){
-//******************************************************************************
-// Description  : clears the LCD
-// Input        : none
-// Output       : none
-//******************************************************************************
-	_CommandToLCD(0xc1);	 	// cursor off
-		                    	// function display clear
-	_lcd_x=_lcd_y=0;
-};
-
-void lcd_putchar(unsigned char c){
-//******************************************************************************
-// Description  : write a char to the LCD
-// Input        : c - character
-// Output       : none
-//******************************************************************************
-	if (_lcd_x>=16){
-		_lcd_y++;
-		lcd_gotoxy(0,_lcd_y);
-	};
-	_DataToLCD(c);            // send data
-	_lcd_x++;
-};
-
-void lcd_puts(unsigned char *str){
-//******************************************************************************
-// Description  : write the string str to the LCD
-// Input        : *str  pointer to string
-// Output       : none
-//******************************************************************************
-	while(*str!=0x0){
-		lcd_putchar(*str);
-		str++;
+void LCD_write_char(unsigned char c)
+{
+	if (LCD_x => 16) 
+	{
+		LCD_y++;
+		LCD_write_Pos(0,LCD_y);
 	}
+	LCD_write_Data(c);
+	LCD_x++;
+};
+
+void LCD_write_chars(unsigned char *str)
+{
+	while (*str != 0x0)
+	{
+		LCD_write_char(*str);
+		str++;				//n√§chstes Zeichen w√§hlen
+	}
+};
+
+
+void LCD_write_Pos(unsigned char x, unsigned char y)
+{
+	y = 0;					//Startposition
+	LCD_write_CMD();			//Pos. anw√§hlen
+};
+
+
+void LCD_clr()
+{
+	LCD_write_CMD(0xC1);			//Clear-CMD
+	LCD_x = 0;
+	LCD_y = 0;
 }
+
+
+void delay_ms(unsigned int time2wait)
+{
+//******************************************************************************
+//Description   : Berechnet √ºber die Prozessorfrequenz die zu wartenden Takte
+//Input         : Wartezeit in ms
+//Output        :none
+//******************************************************************************
+	int i = 0;
+	i = F_CPU * time2wait/1000;		//Berechnung der ben√∂tigten Takte
+	for (int j = 0; j < i; j++);
+};
+
 
 void int_to_ascii(unsigned char cmd){
 //******************************************************************************
@@ -175,31 +147,31 @@ void int_to_ascii(unsigned char cmd){
 	unsigned char einer = 0x30 + datetime[cmd] % 10;
 	switch(cmd){
 		case 0:
-			lcd_gotoxy(6,0);
+			LCD_write_Pos(6,0);
 			break;
 		case 1:
-			lcd_gotoxy(3,0);
+			LCD_write_Pos(3,0);
 			break;
 		case 2:
-			lcd_gotoxy(0,0);
+			LCD_write_Pos(0,0);
 			break;
 		case 3:
-			lcd_gotoxy(0,1);
+			LCD_write_Pos(0,1);
 			break;
 		case 4:
-			lcd_gotoxy(3,1);
+			LCD_write_Pos(3,1);
 			break;
 		case 5:
-			lcd_gotoxy(6,1);
+			LCD_write_Pos(6,1);
 			break;
 	}
-lcd_putchar(zehner);
-lcd_putchar(einer);
+LCD_write_char(zehner);
+LCD_write_char(einer);
 }
 
 void update_datetime(){
 //******************************************************************************
-//Beschreibung  : Z‰hlt eine Sekunde nach oben
+//Beschreibung  : Z√§hlt eine Sekunde nach oben
 //input         : none
 //output        : none
 //******************************************************************************
@@ -211,7 +183,7 @@ void update_datetime(){
 		if (0 == datetime[1]){
 			datetime[2] = (datetime[2] +1 ) % 24;
 			if (menu_state) int_to_ascii(2);
-		      // F¸r Tage Monate und Jahre entsprechnd weiter machen
+		      // FÔøΩr Tage Monate und Jahre entsprechnd weiter machen
 		}
 	}  
 }
@@ -237,6 +209,6 @@ void main( void ){
 	}
 	while (1) {
 		update_datetime();
-		lcd_delay();
+		delay_ms(1000);
 	}
 }
