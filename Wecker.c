@@ -1,4 +1,4 @@
-//******************************************************************************
+﻿//******************************************************************************
 //			Wecker							
 // 	Autor: 		André Hering, Matthias Jahn				
 //	Version: 	0.1							
@@ -36,7 +36,7 @@ unsigned int LCD_x,LCD_y,LCD_max_x;
 // "clocksignal" of LCD
 #define DISPLAY_ENABLE_HIGH  	LCD_COMM_OUT |=  ENABLE_BIT  	// enable HIGH
 #define DISPLAY_ENABLE_LOW   	LCD_COMM_OUT &= ~ENABLE_BIT  	// enable LOW
-#define F_CPU 800000						//Takt der CPU in Hz
+#define F_CPU 8000						//Takt der CPU in Hz
 
 void calc_feb(void){
 //******************************************************************************
@@ -285,7 +285,7 @@ void LCD_update(void){
 			}
 			break;
 		case 0x81:		// nur Sekunde hat sich geändert, HM
-			int_to_ascii(1);
+			int_to_ascii(0);
 			break;
 	}
 	state = 0x80;
@@ -297,11 +297,11 @@ void init_datetime(void){
 // input	: none
 // output	: none
 //******************************************************************************
-	datetime[0] = 32;
-	datetime[1] = 25;
-	datetime[2] = 12;
-	datetime[3] = 7;
-	datetime[4] = 5;
+	datetime[0] = 00;
+	datetime[1] = 28;
+	datetime[2] = 13;
+	datetime[3] = 14;
+	datetime[4] = 2;
 	datetime[5] = 5;
 	datetime[6] = 13;
 }
@@ -331,10 +331,15 @@ __interrupt void Timer_A1(void){
 //input		: none
 //output	: none
 //******************************************************************************
-	update_datetime();				//inkrementiert das datetime array
-	if (0x80 == (state & 0x80)){			//Überprüfen, ob im Hauptmenü
-		LPM3_EXIT;				//Beendet LPM3, wenn in Hauptmenü
+	switch(TAIV){				// TAIV auswerten
+		case 2:				// CCR1 Erreicht
+			update_datetime();	// Zeit aktualisieren
+			break; 
+		case 10:			// Überlauf erreicht
+			update_datetime();	// Zeit aktualisieren
+			break;			
 	}
+	LPM3_EXIT;				// LPM3 verlassen
 }
 
 int main(void){
@@ -346,20 +351,15 @@ int main(void){
 	WDTCTL = WDTPW + WDTHOLD;	// Stop watchdog timer to prevent time out reset
 	LCD_init();			// Initialisiert das LC-Display
 	init_datetime();		// Initialisiert das datetime array
-	init_main_menu();		// schreibt das Hauptmenü auf das LC-Display
+	init_main_menu();               // schreibt das Hauptmenü auf das LC-Display
+        CCTL1 = OUTMOD_4 + CCIE;	// CCR1 interrupt einschalten
+        CCR1 = 0x8000;			// CCR1 auf Hälfte von FFFF setzen
 	TACTL = TASSEL0 + TACLR + TAIE; // ACLK, clear TAR, interrupt enabled
 	TACTL |= MC1;                   // Timer_A in continuous mode starten
 	__enable_interrupt();           // Interrupt global einschalten
 	while(1){
-		switch((state & 0x80)){		//MSB in state
-			case 0x80:		//Hauptmenü
-				LCD_update;	//LC-Display aktualisieren
-				LPM3;		//In LPM3 Modus versetzen
-				break;
-			case 0x00:		//Weckzeitmenü
-				break;
-		
-		}
+        	LCD_update();		// Display aktualisieren
+        	LPM3;			// Energiesparmodus LPM3 starten
 	}
 	return 0;
 }
