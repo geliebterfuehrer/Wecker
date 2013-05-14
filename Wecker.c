@@ -5,11 +5,13 @@
 //										
 //******************************************************************************
 
-
 #include <msp430f2272.h>
 
+//******************************************************************************
+// Beschreibung	: Globale Variablen werden initialisiert
+//******************************************************************************
 unsigned char datetime[7]; // 0. Sekunden, 1. Minute, 2. Stunden, 3. Tage,4. Wochentag(0=Sonntag, 6=Samstag) 5. Monate, 6. Jahre
-unsigned char state = 0x00; //Statusbyte, 0. Skundenänderung 1. Minutenänderung 2. Stundenänderung 3. Tagesänderung 4. Wochentagsänderung 5. Monatänderung 6. Jahresänderung 7. Aktuelles Menü
+unsigned char state = 0x00; //Statusbyte, 0. Skundenänderung 1. Minutenänderung 2. Stundenänderung 3. Tagesänderung 4. Wochentagsänderung 5. Monatsänderung 6. Jahresänderung 7. Aktuelles Menü
 unsigned char days_per_month[12] = {31,31,28,31,30,31,30,31,31,30,31,30}; // Tage pro Monat 0. Dezember...11. November
 char u_week_days[7] = {'S','M','D','M','D','F','S'};
 char l_week_days[7] = {'o','o','i','i','o','r','a'};
@@ -17,23 +19,24 @@ unsigned int LCD_base_y[2] = {0x80, 0xc0};   // example for 2x16 display
 // 1. line 0x00..0x0F + Bit7==0x80
 // 2. line 0x40..0x4F + Bit7==0xc0
 // BIT7 nessesary for command "Set DD RAM address"
-
 unsigned int LCD_x,LCD_y,LCD_max_x;
 
-#define LCD_DATA_OUT P1OUT
-#define LCD_DATA_DIR P1DIR
-#define LCD_COMM_OUT P3OUT
-#define LCD_COMM_DIR P3DIR
-#define RS_BIT               ( 0x0001 )            // RS Display
-#define ENABLE_BIT           ( 0x0002 )            // Enable Display
-#define SELECT_COMMAND_REG   LCD_COMM_OUT &= ~RS_BIT      // set RS to low
-#define SELECT_DATA_REG      LCD_COMM_OUT |=  RS_BIT      // set RS high
+//******************************************************************************
+// Beschreibung	: Eine kleine Runde Bezeichner definieren
+// Hier könnte man noch was machen, was die Statevariablen angeht, um da evt griffigere bezeichnungen für Hexwerte zu finden
+//******************************************************************************
+#define LCD_DATA_OUT 		P1OUT
+#define LCD_DATA_DIR 		P1DIR
+#define LCD_COMM_OUT 		P3OUT
+#define LCD_COMM_DIR 		P3DIR
+#define RS_BIT			( 0x0001 )            		// RS Display
+#define ENABLE_BIT           	( 0x0002 )            		// Enable Display
+#define SELECT_COMMAND_REG   	LCD_COMM_OUT &= ~RS_BIT      	// set RS to low
+#define SELECT_DATA_REG      	LCD_COMM_OUT |=  RS_BIT      	// set RS high
 // "clocksignal" of LCD
-#define DISPLAY_ENABLE_HIGH  LCD_COMM_OUT |=  ENABLE_BIT  // enable HIGH
-#define DISPLAY_ENABLE_LOW   LCD_COMM_OUT &= ~ENABLE_BIT  // enable LOW
-
-
-#define F_CPU 800000		//Takt der CPU in Hz
+#define DISPLAY_ENABLE_HIGH  	LCD_COMM_OUT |=  ENABLE_BIT  	// enable HIGH
+#define DISPLAY_ENABLE_LOW   	LCD_COMM_OUT &= ~ENABLE_BIT  	// enable LOW
+#define F_CPU 800000						//Takt der CPU in Hz
 
 void calc_feb(void){
 //******************************************************************************
@@ -251,7 +254,7 @@ void update_datetime(void){
 
 void LCD_update(void){
 //******************************************************************************
-// Beschreibung	: aktualisiert das LC display je nach status des des Menüaufrufs
+// Beschreibung	: aktualisiert das LC display je nach status des des Menüaufrufs und setzt das state byte auf unverändert
 // input	: none
 // output	: none
 //******************************************************************************
@@ -285,6 +288,53 @@ void LCD_update(void){
 			int_to_ascii(1);
 			break;
 	}
+	state = 0x80;
+}
+
+void init_datetime(void){
+//******************************************************************************
+// Beschreibung	: Initialisiert das datetime array mit der aktuellen Uhrzeit im idealfall vm DCF77 Modul
+// input	: none
+// output	: none
+//******************************************************************************
+	datetime[0] = 32;
+	datetime[1] = 25;
+	datetime[2] = 12;
+	datetime[3] = 7;
+	datetime[4] = 5;
+	datetime[5] = 5;
+	datetime[6] = 13;
+}
+
+void init_main_menu(void){
+//******************************************************************************
+// Beschreibung	: Initialisiert das Hauptmenü
+// input	: none
+// output	: none
+//******************************************************************************
+	state = 0xFF;
+	LCD_write_Pos(10,0);
+	LCD_write_char(':');
+	LCD_write_Pos(13,0);
+	LCD_write_char(':');
+	LCD_write_Pos(10,1);
+	LCD_write_char('.');
+	LCD_write_Pos(13,1);
+	LCD_write_char('.');
+	LCD_update();
+}
+
+#pragma vector=TIMERA1_VECTOR
+__interrupt void Timer_A1(void){
+//******************************************************************************
+//Beschreibung	: Time A3 ISR, Aktualisiert datetime, unterbricht im zweifel dan LPM3
+//input		: none
+//output	: none
+//******************************************************************************
+	update_datetime();				//inkrementiert das datetime array
+	if (0x80 == (state & 0x80)){			//Überprüfen, ob im Hauptmenü
+		LPM3_EXIT;				//Beendet LPM3, wenn in Hauptmenü
+	}
 }
 
 int main(void){
@@ -294,21 +344,22 @@ int main(void){
 // Output       : none
 //******************************************************************************
 	WDTCTL = WDTPW + WDTHOLD;	// Stop watchdog timer to prevent time out reset
-	LCD_init();
-	datetime[0] = 32;
-	datetime[1] = 25;
-	datetime[2] = 12;
-	datetime[3] = 7;
-	datetime[4] = 5;
-	datetime[5] = 13;
-	//unsigned char text[32]="Datum:  Zeit:  ";
-	//lcd_puts(text);
-	for(int i=0;i<6;i++){
-		int_to_ascii(i);
-	}
-	while (1) {
-		update_datetime();
-		delay_ms(1000);
+	LCD_init();			// Initialisiert das LC-Display
+	init_datetime();		// Initialisiert das datetime array
+	init_main_menu();		// schreibt das Hauptmenü auf das LC-Display
+	TACTL = TASSEL0 + TACLR + TAIE; // ACLK, clear TAR, interrupt enabled
+	TACTL |= MC1;                   // Timer_A in continuous mode starten
+	__enable_interrupt();           // Interrupt global einschalten
+	while(1){
+		switch((state & 0x80)){		//MSB in state
+			case 0x80:		//Hauptmenü
+				LCD_update;	//LC-Display aktualisieren
+				LPM3;		//In LPM3 Modus versetzen
+				break;
+			case 0x00:		//Weckzeitmenü
+				break;
+		
+		}
 	}
 	return 0;
 }
