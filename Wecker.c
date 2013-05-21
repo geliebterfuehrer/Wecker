@@ -1,12 +1,10 @@
-﻿//******************************************************************************
-//			Wecker							
-// 	Autor: 		André Hering, Matthias Jahn				
-//	Version: 	0.1							
-//										
 //******************************************************************************
-
+//            Wecker                            
+//     Autor:         André Hering, Matthias Jahn                
+//    Version:     0.1                            
+//                                        
+//******************************************************************************
 #include <msp430f2272.h>
-
 //******************************************************************************
 // Beschreibung    : Globale Variablen werden initialisiert
 //******************************************************************************
@@ -15,17 +13,14 @@ unsigned char state; //Statusbyte, 0. Skundenänderung 1. Minutenänderung 2. St
 unsigned char mainstate = BIT1;
 unsigned char days_per_month[12] = {31,31,28,31,30,31,30,31,31,30,31,30}; // Tage pro Monat 0. Dezember...11. November
 unsigned char Taster = 0; // '4' = S4 (rot), '3' = S3 (gelb), '2' = S2 (grün), '1' = S1 (blau)
-unsigned char weckzeit[]
+unsigned char weckzeit[2]; // 1. Minute, 2. Stunden
 char u_week_days[7] = {'S','M','D','M','D','F','S'};
 char l_week_days[7] = {'o','o','i','i','o','r','a'};
-unsigned char wake_state = 0x00; //Wir müssen uns hier mal noch überlegen, was was bedeutet. Bit1: An/Aus Bit2: Klingel An/Aus
-unsigned char waketime[2] = {0, 0}; // Weckzeit, Position 0: Stunden, Position 1: Minuten
 unsigned int LCD_base_y[2] = {0x80, 0xc0};   // example for 2x16 display
 // 1. line 0x00..0x0F + Bit7==0x80
 // 2. line 0x40..0x4F + Bit7==0xc0
 // BIT7 nessesary for command "Set DD RAM address"
 unsigned int LCD_x,LCD_y,LCD_max_x;
-
 //******************************************************************************
 // Beschreibung    : Eine kleine Runde Bezeichner definieren
 // Hier könnte man noch was machen, was die Statevariablen angeht, um da evt griffigere bezeichnungen für Hexwerte zu finden
@@ -44,9 +39,9 @@ unsigned int LCD_x,LCD_y,LCD_max_x;
 #define F_CPU 8000                        //Takt der CPU in Hz
 void calc_feb(void){
 //******************************************************************************
-//Beschreibung	: Berechnet anhand des Jahres die Anzahl der Tage des Februars
-//Input		: none
-//Output	: none
+//Beschreibung    : Berechnet anhand des Jahres die Anzahl der Tage des Februars
+//Input        : none
+//Output    : none
 //******************************************************************************
     if(0 == datetime[6] % 4){            // Durch 4 Teilbare Jahre Schaltjahr
         //if(0 == datetime[6] % 100){        // Durch 100 Teilbare Jahre kein Schaltjahr
@@ -65,7 +60,6 @@ void calc_feb(void){
         days_per_month[2] = 28;
     }
 }
-
 void delay_ms(unsigned int time2wait)
 {
 //******************************************************************************
@@ -96,13 +90,11 @@ void LCD_write_byte(unsigned char data)
     delay_ms(100);
 };
 
-
 void LCD_write_CMD(unsigned char data)
 {
     SELECT_COMMAND_REG;
     LCD_write_byte(data);
 };
-
 void LCD_init ( )
 {
     char LCD_init_CMDs[6] = {0x33, 0x32, 0x28, 0x0E, 0x01, 0x06};
@@ -121,13 +113,11 @@ void LCD_init ( )
         LCD_write_CMD(LCD_init_CMDs[i]);
     };
 };
-
 void LCD_write_Data(unsigned char data)
 {
     SELECT_DATA_REG;
     LCD_write_byte(data);
 };
-
 void LCD_write_Pos(unsigned char x, unsigned char y){
     if (y>1) y=0;                //Startposition
     LCD_write_CMD(LCD_base_y[y]+x);    //Pos. anwählen
@@ -135,7 +125,6 @@ void LCD_write_Pos(unsigned char x, unsigned char y){
     LCD_y=y;
     
 };
-
 void LCD_write_char(unsigned char c)
 {
     if (LCD_x >= 16) 
@@ -146,7 +135,6 @@ void LCD_write_char(unsigned char c)
     LCD_write_Data(c);
     LCD_x++;
 };
-
 void LCD_write_chars(unsigned char *str)
 {
     while (*str != 0x0)
@@ -159,8 +147,7 @@ void LCD_write_chars(unsigned char *str)
 void LCD_clr()
 {
     LCD_write_CMD(0x01);            //Clear-CMD
-    LCD_x = 0;
-    LCD_y = 0;
+        LCD_write_Pos(0,0);
 }
  
  
@@ -214,7 +201,6 @@ void int_to_ascii(unsigned char cmd){
     LCD_write_char(zehner);
     LCD_write_char(einer);
 }
-
 void update_datetime(void){
 //******************************************************************************
 //Beschreibung  : Zählt eine Sekunde nach oben und aktualisier entsprechend alle anderen Werte von datetime
@@ -248,7 +234,6 @@ void update_datetime(void){
         }
     }
 }
-
 void LCD_update(void){
 //******************************************************************************
 // Beschreibung    : aktualisiert das LC display je nach status des des Menüaufrufs und setzt das state byte auf unverändert
@@ -287,7 +272,6 @@ void LCD_update(void){
     }
     state = 0x80;
 }
-
 void init_datetime(void){
 //******************************************************************************
 // Beschreibung    : Initialisiert das datetime array mit der aktuellen Uhrzeit im idealfall vm DCF77 Modul
@@ -302,7 +286,6 @@ void init_datetime(void){
     datetime[5] = 5;
     datetime[6] = 13;
 }
-
 void init_main_menu(void){
 //******************************************************************************
 // Beschreibung    : Initialisiert das Hauptmenü
@@ -311,7 +294,7 @@ void init_main_menu(void){
 //******************************************************************************
     state = 0xFF;
     //LCD_clr();
-    LCD_write_Pos(10,0);
+        LCD_write_Pos(10,0);
     LCD_write_char(':');
     LCD_write_Pos(13,0);
     LCD_write_char(':');
@@ -321,11 +304,103 @@ void init_main_menu(void){
     LCD_write_char('.');
     LCD_update();
 }
-
-void check_wake_time(void){
-  if((wake_stat & BIT1) == BIT1){
-  }
+void Weckzeit_Einstellung(void){
+//******************************************************************************
+// Beschreibung    : 
+// input    : none
+// output    : none
+//******************************************************************************
+        unsigned char weckindex = 0;
+        unsigned char weckzeittmp[4] = {0, 0, 0, 0}; //hh:mm 
+        LCD_write_Pos(8,0);
+        
+        while(mainstate == BIT2){
+          switch(Taster){
+            case 1:               // BLAUER - Taster
+              LCD_clr();
+              mainstate = BIT1; 
+              init_main_menu();
+            break;                  
+                  
+            case 2:               // GRÜNER - Taster      / Zeiteinheit +
+              switch(weckindex){
+                case 0:           // Stunde (Zehner)
+                  if(weckzeittmp[0] == 2)
+                    weckzeittmp[0] = 0;
+                  else
+                    weckzeittmp[0] += 1;
+                  LCD_write_char(0x30 + weckzeittmp[0]);
+                  LCD_write_Pos(8,0); 
+                break;
+                
+                
+                case 1:           // Stunde (Einer)
+                  if(weckzeittmp[0] == 2){
+                    if(weckzeittmp[1] == 4)
+                      weckzeittmp[1] = 0;
+                    else
+                      weckzeittmp[1] += 1;
+                  }  
+                  else{  
+                    if(weckzeittmp[1] == 9)
+                      weckzeittmp[1] = 0;
+                    else
+                      weckzeittmp[1] += 1;
+                  }
+                  LCD_write_char(0x30 + weckzeittmp[1]);
+                  LCD_write_Pos(9,0); 
+                break;
+                
+                case 2:           // Minute (Zehner)
+                  if(weckzeittmp[2] == 5)
+                    weckzeittmp[2] = 0;
+                  else
+                    weckzeittmp[2] += 1;
+                  LCD_write_char(0x30 + weckzeittmp[2]);
+                  LCD_write_Pos(11,0); 
+                break;
+                
+                case 3:           // Minute (Einer)
+                  if(weckzeittmp[3] == 9)
+                    weckzeittmp[3] = 0;
+                  else
+                    weckzeittmp[3] += 1;
+                  LCD_write_char(0x30 + weckzeittmp[3]);
+                  LCD_write_Pos(12,0); 
+                break;                
+              }    
+            break;
+                  
+            case 3:               // GELBER - Taster      / Zeiteinheit -
+              //..............................................................
+            break;                  
+                  
+            case 4:               // ROTER - Taster       / Zeiteinheit wechseln
+              if(LCD_x == 8){
+                LCD_write_Pos(9,0);
+                weckindex = 1;
+              }
+              else if(LCD_x == 9){
+                LCD_write_Pos(11,0);
+                weckindex = 2;
+              }
+              else if(LCD_x == 11){
+                LCD_write_Pos(12,0);
+                weckindex = 3;
+              }              
+              else if(LCD_x == 12){
+                LCD_write_Pos(8,0);
+                weckindex = 0;
+              } 
+              
+            break;
+          }
+          Taster = 0;
+          if(mainstate == BIT2)
+            LPM3;
+        }
 }
+ 
 
 #pragma vector=TIMERA1_VECTOR
 __interrupt void Timer_A1(void){
@@ -385,7 +460,7 @@ int main(void){
 // Output       : none
 //******************************************************************************
     WDTCTL = WDTPW + WDTHOLD;    // Stop watchdog timer to prevent time out reset
-        //P1DIR = 0xFF;                   // P1 als Output (1.0 .. 1.7)
+        //P1DIR = 0xFF;                 // P1 als Output (1.0 .. 1.7)
         P2IES = BIT0+BIT1+BIT2+BIT5;    // ...
         P2IE =  BIT0+BIT1+BIT2+BIT5;    // ...
         
@@ -396,7 +471,7 @@ int main(void){
         CCR1 = 0x8000;            // CCR1 auf Hälfte von FFFF setzen
     TACTL = TASSEL0 + TACLR + TAIE; // ACLK, clear TAR, interrupt enabled
     TACTL |= MC1;                   // Timer_A in continuous mode starten
-        
+         
     __enable_interrupt();           // Interrupt global einschalten
     
         while(1){
@@ -409,34 +484,11 @@ int main(void){
             case BIT2:                  // Weckzeiteinstellung
               LCD_clr();                // Komplette Anzeige löschen
               Taster = 0;               // Damit beim Wechsel vom Hauptmenü das Display nicht zurückgesetzt wird
+ 
               
-              while(mainstate == BIT2){
-                switch(Taster){
-                  case 1:
-                    LCD_clr();
-                    mainstate = BIT1; 
-                    init_main_menu();
-                  break;                  
-                  
-                  case 2:
-                    LCD_write_chars("hallo");
-                  break;
-                  
-                  case 3:
-                    LCD_write_chars("du");
-                  break;                  
-                  
-                  case 4:
-                    LCD_write_chars("arsch");
-                  break;
-                }
-                Taster = 0;
-                if(mainstate == BIT2)
-                  LPM3;
-              }
+              Weckzeit_Einstellung();
             break;
           }  
     }
     return 0;
 }
-
