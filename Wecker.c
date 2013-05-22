@@ -1,7 +1,7 @@
 //******************************************************************************
 //            Wecker                            
-//     Autor:         André Hering, Matthias Jahn                
-//    Version:     0.1                            
+//	Autor:         	André Hering, Matthias Jahn                
+//	Version:     	0.1                            
 //                                        
 //******************************************************************************
 #include <msp430f2272.h>
@@ -17,6 +17,7 @@ unsigned char weckzeit[2]; // 1. Minute, 2. Stunden
 char u_week_days[7] = {'S','M','D','M','D','F','S'};
 char l_week_days[7] = {'o','o','i','i','o','r','a'};
 unsigned int LCD_base_y[2] = {0x80, 0xc0};   // example for 2x16 display
+unsigned char wakestate;	//Status des Weckers Bit 1:Wecker aktiviert Ja/Nein
 // 1. line 0x00..0x0F + Bit7==0x80
 // 2. line 0x40..0x4F + Bit7==0xc0
 // BIT7 nessesary for command "Set DD RAM address"
@@ -452,6 +453,14 @@ __interrupt void P2_ISR(void){
         
         LPM3_EXIT;       
 }         
+
+void check_wake_time(void){
+	if (0x01 == (wakestate & 0x01)){	//Prüft ob der Wecker aktiv  ist
+		if(weckzeit[0] == datetime[1] && weckzeit[1] == datetime[2]){ //Prüft, ob weckzeit und tageszeit übereinstimmen
+			wakestate |= BIT2;	//Wenn ja dann bit2 setzen, für weckzeit erreicht
+		}
+	}
+}
 
 int main(void){
 //******************************************************************************
