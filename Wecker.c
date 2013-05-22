@@ -295,7 +295,7 @@ void init_main_menu(void){
 //******************************************************************************
     state = 0xFF;
     //LCD_clr();
-        LCD_write_Pos(10,0);
+    LCD_write_Pos(10,0);
     LCD_write_char(':');
     LCD_write_Pos(13,0);
     LCD_write_char(':');
@@ -401,7 +401,6 @@ void Weckzeit_Einstellung(void){
             LPM3;
         }
 }
- 
 
 #pragma vector=TIMERA1_VECTOR
 __interrupt void Timer_A1(void){
@@ -420,6 +419,7 @@ __interrupt void Timer_A1(void){
     }
     LPM3_EXIT;                // LPM3 verlassen
 }
+
 #pragma vector=PORT2_VECTOR
 __interrupt void P2_ISR(void){
 //******************************************************************************
@@ -455,11 +455,24 @@ __interrupt void P2_ISR(void){
 }         
 
 void check_wake_time(void){
+//******************************************************************************
+// Beschreibung	: Wenn der Wecker aktiv ist, dan wird ein Bit gesetzt, welches das Klingeln auslöst
+// input	: none
+// output	: none
+// Einschränkungen	: Fängt nch nicht alle Fälle von uhr und Weckzeit ab
+//******************************************************************************
 	if (0x01 == (wakestate & 0x01)){	//Prüft ob der Wecker aktiv  ist
 		if(weckzeit[0] == datetime[1] && weckzeit[1] == datetime[2]){ //Prüft, ob weckzeit und tageszeit übereinstimmen
 			wakestate |= BIT2;	//Wenn ja dann bit2 setzen, für weckzeit erreicht
 		}
 	}
+}
+void ring_ring(void){
+//******************************************************************************
+// Beschreibung	: Lässt den Wecker Klingeln
+// input	: none
+// output	: none
+//******************************************************************************
 }
 
 int main(void){
@@ -468,26 +481,26 @@ int main(void){
 // Input        : none
 // Output       : none
 //******************************************************************************
-    WDTCTL = WDTPW + WDTHOLD;    // Stop watchdog timer to prevent time out reset
+    WDTCTL = WDTPW + WDTHOLD;    	// Stop watchdog timer to prevent time out reset
         //P1DIR = 0xFF;                 // P1 als Output (1.0 .. 1.7)
         P2IES = BIT0+BIT1+BIT2+BIT5;    // ...
         P2IE =  BIT0+BIT1+BIT2+BIT5;    // ...
         
-    LCD_init();            // Initialisiert das LC-Display
-    init_datetime();        // Initialisiert das datetime array
-    init_main_menu();               // schreibt das Hauptmenü auf das LC-Display
-        CCTL1 = OUTMOD_4 + CCIE;    // CCR1 interrupt einschalten
-        CCR1 = 0x8000;            // CCR1 auf Hälfte von FFFF setzen
-    TACTL = TASSEL0 + TACLR + TAIE; // ACLK, clear TAR, interrupt enabled
-    TACTL |= MC1;                   // Timer_A in continuous mode starten
+    LCD_init();            		// Initialisiert das LC-Display
+    init_datetime();        		// Initialisiert das datetime array
+    init_main_menu();             	// schreibt das Hauptmenü auf das LC-Display
+    CCTL1 = OUTMOD_4 + CCIE;    	// CCR1 interrupt einschalten
+    CCR1 = 0x8000;            		// CCR1 auf Hälfte von FFFF setzen
+    TACTL = TASSEL0 + TACLR + TAIE; 	// ACLK, clear TAR, interrupt enabled
+    TACTL |= MC1;                   	// Timer_A in continuous mode starten
          
-    __enable_interrupt();           // Interrupt global einschalten
+    __enable_interrupt();           	// Interrupt global einschalten
     
         while(1){
           switch(mainstate){
             case BIT1:                  // Hauptmenü
-              LCD_update();        // Display aktualisieren
-              LPM3;            // Energiesparmodus LPM3 starten
+              LCD_update();        	// Display aktualisieren
+              LPM3;            		// Energiesparmodus LPM3 starten
             break;
             
             case BIT2:                  // Weckzeiteinstellung
